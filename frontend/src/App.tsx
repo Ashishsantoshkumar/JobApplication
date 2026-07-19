@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ResumeUpload } from './components/ResumeUpload';
 import { Dashboard } from './components/Dashboard';
 import { Sparkles, Database, ShieldAlert, Cpu } from 'lucide-react';
+import { API_BASE } from './config';
 
 interface ServerStatus {
   status: string;
@@ -18,7 +19,7 @@ function App() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/status');
+        const response = await fetch(`${API_BASE}/api/status`);
         if (response.ok) {
           const data = await response.json();
           setServerStatus(data);
