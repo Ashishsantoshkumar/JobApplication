@@ -1,4 +1,5 @@
 import express from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
@@ -12,10 +13,21 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 5000;
+// Initialize once per function instance. Requests wait for this promise before
+// accessing the database, which also makes cold starts safe on Vercel.
+const databaseReady = db.initDb();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(async (_req, _res, next) => {
+  try {
+    await databaseReady;
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Configure multer for file upload in memory
 const storage = multer.memoryStorage();
@@ -85,6 +97,31 @@ app.post('/api/jobs', async (req, res) => {
   }
 });
 
+// Submit an application for a matched job
+app.post('/api/applications', async (req, res) => {
+  try {
+    const { job_id, full_name, email, phone, linkedin_url, cover_letter } = req.body;
+
+    if (!job_id || !full_name?.trim() || !email?.trim()) {
+      return res.status(400).json({ error: 'Job, full name, and email are required.' });
+    }
+
+    const application = await db.saveApplication({
+      job_id,
+      full_name: full_name.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone?.trim(),
+      linkedin_url: linkedin_url?.trim(),
+      cover_letter: cover_letter?.trim()
+    });
+
+    res.status(201).json(application);
+  } catch (error) {
+    console.error('Error in POST /api/applications:', error);
+    res.status(500).json({ error: 'Unable to submit the application. Please try again.' });
+  }
+});
+
 // Upload resume and rank matching jobs
 app.post('/api/resume/upload', upload.single('resume'), async (req, res) => {
   try {
@@ -131,10 +168,18 @@ app.post('/api/resume/upload', upload.single('resume'), async (req, res) => {
 
 // Initialize database schemas and start server
 async function startServer() {
-  await db.initDb();
   app.listen(port, () => {
     console.log(`🚀 Resume-to-Job Matching Server running on http://localhost:${port}`);
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('Unhandled request error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+export default app;

@@ -4,6 +4,7 @@ import {
   ChevronUp, User, Mail, Phone, GraduationCap, CheckCircle2, AlertTriangle, 
   Sparkles, ExternalLink, Star, RefreshCw 
 } from 'lucide-react';
+import { ApplicationForm } from './ApplicationForm';
 
 interface Job {
   id: string;
@@ -60,16 +61,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const [minScore, setMinScore] = useState(30);
   const [locationQuery, setLocationQuery] = useState('');
   const [appliedCount, setAppliedCount] = useState<string[]>([]);
+  const [applicationJob, setApplicationJob] = useState<Job | null>(null);
 
   const toggleJobExpanded = (id: string) => {
     setExpandedJobId(expandedJobId === id ? null : id);
   };
 
-  const handleApply = (e: React.MouseEvent, jobId: string) => {
+  const handleApply = (e: React.MouseEvent, job: Job) => {
     e.stopPropagation();
-    if (!appliedCount.includes(jobId)) {
-      setAppliedCount([...appliedCount, jobId]);
-    }
+    if (!appliedCount.includes(job.id)) setApplicationJob(job);
   };
 
   const toggleTypeFilter = (type: string) => {
@@ -464,7 +464,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                       {/* Actions */}
                       <div className="pt-3 flex justify-end gap-3">
                         <button 
-                          onClick={(e) => handleApply(e, job.id)}
+                          onClick={(e) => handleApply(e, job)}
                           className={`glow-btn px-5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md ${
                             isApplied 
                               ? 'bg-slate-800 text-slate-400 cursor-default border border-slate-700/60'
@@ -490,6 +490,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
           </div>
         )}
       </div>
+      {applicationJob && (
+        <ApplicationForm
+          job={applicationJob}
+          profile={profile}
+          onClose={() => setApplicationJob(null)}
+          onSubmitted={() => setAppliedCount(current => [...current, applicationJob.id])}
+        />
+      )}
     </div>
   );
 };

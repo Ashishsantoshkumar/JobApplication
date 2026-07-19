@@ -1,4 +1,69 @@
- 1. Install the root dependencies, then dependencies for both apps:
+# Resume-to-Job Matching Portal
+
+A full-stack application that turns a PDF resume into a structured candidate profile and ranks relevant job opportunities. It combines a React user experience, an Express API, PostgreSQL with pgvector, and optional OpenAI-powered resume parsing and embeddings.
+
+> The app works without external AI or PostgreSQL during local development by falling back to a lightweight mock parser, local embeddings, and JSON-backed data. For production-quality matching, configure both OpenAI and a PostgreSQL database with the `vector` extension.
+
+## Highlights
+
+- Upload PDF resumes up to 10 MB.
+- Extract candidate details, skills, education, and experience.
+- Create and browse job listings.
+- Rank jobs using vector similarity.
+- Use OpenAI for richer parsing and embeddings when `OPENAI_API_KEY` is configured.
+- Deploy the Vite frontend and Express backend together on one Vercel domain through Vercel Services.
+
+## Architecture
+
+```text
+Browser (React + Vite)
+        |
+        | /api/*
+        v
+Express API
+        |
+        +-- OpenAI (optional): parsing and embeddings
+        |
+        +-- PostgreSQL + pgvector (recommended)
+            \-- JSON/local fallback (development only)
+```
+
+The frontend calls relative API paths in production. Vercel routes `/api/*` to the backend service and routes all other requests to the frontend service.
+
+## Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, Tailwind CSS |
+| Backend | Node.js, Express, TypeScript |
+| Resume uploads | Multer, pdf-parse |
+| AI | OpenAI API (optional) |
+| Database | PostgreSQL, pgvector, `pg` |
+| Local database | Docker Compose with `ankane/pgvector` |
+| Deployment | Vercel Services |
+
+## Project structure
+
+```text
+.
+├── frontend/              # Vite + React client
+├── backend/               # Express API and matching engine
+│   ├── src/services/      # Database, parser, embeddings, ranking
+│   └── .env.example       # Backend environment variable template
+├── docker-compose.yml     # Local PostgreSQL + pgvector service
+└── vercel.json            # Vercel Services routing configuration
+```
+
+## Prerequisites
+
+- Node.js 20 or later
+- npm
+- Docker Desktop (recommended for local PostgreSQL)
+- An OpenAI API key (optional locally; recommended in production)
+
+## Run locally
+
+1. Install the root dependencies, then dependencies for both apps:
 
    ```bash
    npm install
@@ -33,8 +98,6 @@
 
 To run services separately, use `npm run dev:frontend` and `npm run dev:backend`.
 
-Live Demo-https://job-application-six-sepia.vercel.app/
-
 ## Configuration
 
 Configure backend variables in `backend/.env`. Never commit real secrets.
@@ -59,6 +122,7 @@ postgresql://postgres:password@localhost:5432/job_matching
 | `GET` | `/api/status` | Reports API availability and active database mode. |
 | `GET` | `/api/jobs` | Lists all available jobs. |
 | `POST` | `/api/jobs` | Creates a job and its embedding. |
+| `POST` | `/api/applications` | Saves an Easy Apply submission with applicant contact details and an optional cover letter. |
 | `POST` | `/api/resume/upload` | Uploads a PDF as multipart form data using the `resume` field and returns the parsed profile plus ranked matches. |
 
 Example health check:

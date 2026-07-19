@@ -15,9 +15,21 @@ const match_1 = require("./services/match");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const port = process.env.PORT || 5000;
+// Initialize once per function instance. Requests wait for this promise before
+// accessing the database, which also makes cold starts safe on Vercel.
+const databaseReady = db_1.db.initDb();
 // Middleware
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
+app.use(async (_req, _res, next) => {
+    try {
+        await databaseReady;
+        next();
+    }
+    catch (error) {
+        next(error);
+    }
+});
 // Configure multer for file upload in memory
 const storage = multer_1.default.memoryStorage();
 const upload = (0, multer_1.default)({
@@ -80,6 +92,28 @@ app.post('/api/jobs', async (req, res) => {
         res.status(500).json({ error: 'Failed to create job listing' });
     }
 });
+// Submit an application for a matched job
+app.post('/api/applications', async (req, res) => {
+    try {
+        const { job_id, full_name, email, phone, linkedin_url, cover_letter } = req.body;
+        if (!job_id || !full_name?.trim() || !email?.trim()) {
+            return res.status(400).json({ error: 'Job, full name, and email are required.' });
+        }
+        const application = await db_1.db.saveApplication({
+            job_id,
+            full_name: full_name.trim(),
+            email: email.trim().toLowerCase(),
+            phone: phone?.trim(),
+            linkedin_url: linkedin_url?.trim(),
+            cover_letter: cover_letter?.trim()
+        });
+        res.status(201).json(application);
+    }
+    catch (error) {
+        console.error('Error in POST /api/applications:', error);
+        res.status(500).json({ error: 'Unable to submit the application. Please try again.' });
+    }
+});
 // Upload resume and rank matching jobs
 app.post('/api/resume/upload', upload.single('resume'), async (req, res) => {
     try {
@@ -118,9 +152,15 @@ app.post('/api/resume/upload', upload.single('resume'), async (req, res) => {
 });
 // Initialize database schemas and start server
 async function startServer() {
-    await db_1.db.initDb();
     app.listen(port, () => {
         console.log(`🚀 Resume-to-Job Matching Server running on http://localhost:${port}`);
     });
 }
-startServer();
+if (!process.env.VERCEL) {
+    startServer();
+}
+app.use((err, _req, res, _next) => {
+    console.error('Unhandled request error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+});
+exports.default = app;

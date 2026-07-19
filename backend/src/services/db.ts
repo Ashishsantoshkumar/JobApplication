@@ -39,12 +39,27 @@ export interface Resume {
   resume_embeddings?: number[];
 }
 
+export interface Application {
+  id: string;
+  job_id: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+  linkedin_url?: string;
+  cover_letter?: string;
+  created_at: string;
+}
+
 const MOCK_DB_PATH = path.join(__dirname, '../../mock_db.json');
 
 class DatabaseService {
   private pool: Pool | null = null;
   private useFallback: boolean = true;
-  private fallbackData: { jobs: Job[]; resumes: Resume[] } = { jobs: [], resumes: [] };
+  private fallbackData: { jobs: Job[]; resumes: Resume[]; applications: Application[] } = {
+    jobs: [],
+    resumes: [],
+    applications: []
+  };
 
   constructor() {
     const dbUrl = process.env.DATABASE_URL;
@@ -65,14 +80,19 @@ class DatabaseService {
     try {
       if (fs.existsSync(MOCK_DB_PATH)) {
         const fileContent = fs.readFileSync(MOCK_DB_PATH, 'utf-8');
-        this.fallbackData = JSON.parse(fileContent);
+        const storedData = JSON.parse(fileContent);
+        this.fallbackData = {
+          jobs: storedData.jobs || [],
+          resumes: storedData.resumes || [],
+          applications: storedData.applications || []
+        };
       } else {
-        this.fallbackData = { jobs: [], resumes: [] };
+        this.fallbackData = { jobs: [], resumes: [], applications: [] };
         this.saveFallback();
       }
     } catch (error) {
       console.error('Error loading fallback JSON database:', error);
-      this.fallbackData = { jobs: [], resumes: [] };
+      this.fallbackData = { jobs: [], resumes: [], applications: [] };
     }
   }
 
@@ -132,6 +152,19 @@ class DatabaseService {
           extracted_text TEXT NOT NULL,
           parsed_json JSONB DEFAULT '{}'::jsonb,
           resume_embeddings vector(1536)
+        );
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS applications (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+          full_name VARCHAR(255) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          phone VARCHAR(50),
+          linkedin_url TEXT,
+          cover_letter TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
 
@@ -251,6 +284,36 @@ class DatabaseService {
       this.saveFallback();
       return newResume;
     }
+  }
+
+  public async saveApplication(application: Omit<Application, 'id' | 'created_at'>): Promise<Application> {
+    const fallbackApplication: Application = {
+      ...application,
+      id: Math.random().toString(36).substring(2, 11),
+      created_at: new Date().toISOString()
+    };
+
+    if (this.useFallback) {
+      this.fallbackData.applications.push(fallbackApplication);
+      this.saveFallback();
+      return fallbackApplication;
+    }
+
+    const result = await this.pool!.query(
+      `INSERT INTO applications (job_id, full_name, email, phone, linkedin_url, cover_letter)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, job_id, full_name, email, phone, linkedin_url, cover_letter, created_at`,
+      [
+        application.job_id,
+        application.full_name,
+        application.email,
+        application.phone || null,
+        application.linkedin_url || null,
+        application.cover_letter || null
+      ]
+    );
+
+    return result.rows[0];
   }
 
   // DB Direct query access if needed
