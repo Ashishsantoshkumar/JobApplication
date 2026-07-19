@@ -100,7 +100,20 @@ app.post('/api/jobs', async (req, res) => {
 // Submit an application for a matched job
 app.post('/api/applications', async (req, res) => {
   try {
-    const { job_id, full_name, email, phone, linkedin_url, cover_letter } = req.body;
+    const {
+      job_id,
+      full_name,
+      email,
+      phone,
+      current_location,
+      years_experience,
+      current_company,
+      notice_period,
+      expected_salary,
+      linkedin_url,
+      portfolio_url,
+      cover_letter
+    } = req.body;
 
     if (!job_id || !full_name?.trim() || !email?.trim()) {
       return res.status(400).json({ error: 'Job, full name, and email are required.' });
@@ -111,7 +124,13 @@ app.post('/api/applications', async (req, res) => {
       full_name: full_name.trim(),
       email: email.trim().toLowerCase(),
       phone: phone?.trim(),
+      current_location: current_location?.trim() || 'Not specified',
+      years_experience: Number.isFinite(Number(years_experience)) ? Number(years_experience) : 0,
+      current_company: current_company?.trim(),
+      notice_period: notice_period?.trim() || 'Not specified',
+      expected_salary: expected_salary?.trim(),
       linkedin_url: linkedin_url?.trim(),
+      portfolio_url: portfolio_url?.trim(),
       cover_letter: cover_letter?.trim()
     });
 

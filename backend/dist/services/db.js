@@ -142,10 +142,25 @@ class DatabaseService {
           full_name VARCHAR(255) NOT NULL,
           email VARCHAR(255) NOT NULL,
           phone VARCHAR(50),
+          current_location VARCHAR(255) NOT NULL,
+          years_experience NUMERIC(4, 1) NOT NULL,
+          current_company VARCHAR(255),
+          notice_period VARCHAR(100) NOT NULL,
+          expected_salary VARCHAR(100),
           linkedin_url TEXT,
+          portfolio_url TEXT,
           cover_letter TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+      `);
+            await client.query(`
+        ALTER TABLE applications
+          ADD COLUMN IF NOT EXISTS current_location VARCHAR(255),
+          ADD COLUMN IF NOT EXISTS years_experience NUMERIC(4, 1),
+          ADD COLUMN IF NOT EXISTS current_company VARCHAR(255),
+          ADD COLUMN IF NOT EXISTS notice_period VARCHAR(100),
+          ADD COLUMN IF NOT EXISTS expected_salary VARCHAR(100),
+          ADD COLUMN IF NOT EXISTS portfolio_url TEXT;
       `);
             client.release();
             this.useFallback = false;
@@ -268,14 +283,20 @@ class DatabaseService {
             this.saveFallback();
             return fallbackApplication;
         }
-        const result = await this.pool.query(`INSERT INTO applications (job_id, full_name, email, phone, linkedin_url, cover_letter)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, job_id, full_name, email, phone, linkedin_url, cover_letter, created_at`, [
+        const result = await this.pool.query(`INSERT INTO applications (job_id, full_name, email, phone, current_location, years_experience, current_company, notice_period, expected_salary, linkedin_url, portfolio_url, cover_letter)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *`, [
             application.job_id,
             application.full_name,
             application.email,
             application.phone || null,
+            application.current_location,
+            application.years_experience,
+            application.current_company || null,
+            application.notice_period,
+            application.expected_salary || null,
             application.linkedin_url || null,
+            application.portfolio_url || null,
             application.cover_letter || null
         ]);
         return result.rows[0];
