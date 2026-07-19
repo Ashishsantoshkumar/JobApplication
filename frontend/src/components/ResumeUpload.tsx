@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, Sparkles, AlertCircle, ArrowRight } from 'lucide-react';
+import { API_BASE } from '../config';
 
 interface ResumeUploadProps {
   onUploadSuccess: (data: { profile: any; matches: any[] }) => void;
@@ -72,7 +73,7 @@ export const ResumeUpload: React.FC<ResumeUploadProps> = ({ onUploadSuccess }) =
       formData.append('resume', file);
 
       // Perform actual request
-      const response = await fetch('http://localhost:5000/api/resume/upload', {
+      const response = await fetch(`${API_BASE}/api/resume/upload`, {
         method: 'POST',
         body: formData,
       });
