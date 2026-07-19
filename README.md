@@ -33,6 +33,8 @@
 
 To run services separately, use `npm run dev:frontend` and `npm run dev:backend`.
 
+Live Demo-https://job-application-six-sepia.vercel.app/
+
 ## Configuration
 
 Configure backend variables in `backend/.env`. Never commit real secrets.
