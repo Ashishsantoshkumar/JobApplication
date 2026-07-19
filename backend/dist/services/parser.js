@@ -85,6 +85,19 @@ function fallbackParse(text) {
             }]
     };
 }
+function normalizeParsedProfile(value, rawText) {
+    const fallback = fallbackParse(rawText);
+    return {
+        ...fallback,
+        name: typeof value.name === 'string' && value.name.trim() ? value.name.trim() : fallback.name,
+        email: typeof value.email === 'string' ? value.email.trim() : fallback.email,
+        phone: typeof value.phone === 'string' ? value.phone.trim() : fallback.phone,
+        summary: typeof value.summary === 'string' && value.summary.trim() ? value.summary.trim() : fallback.summary,
+        skills: Array.isArray(value.skills) ? value.skills.filter((skill) => typeof skill === 'string') : fallback.skills,
+        experience: Array.isArray(value.experience) ? value.experience : fallback.experience,
+        education: Array.isArray(value.education) ? value.education : fallback.education
+    };
+}
 async function parseResume(fileBuffer) {
     let rawText = '';
     try {
@@ -143,7 +156,7 @@ Return ONLY valid JSON. Do not include markdown code block formatting.`
             ],
             response_format: { type: 'json_object' }
         });
-        const parsedJson = JSON.parse(response.choices[0].message.content || '{}');
+        const parsedJson = normalizeParsedProfile(JSON.parse(response.choices[0].message.content || '{}'), rawText);
         console.log('✅ OpenAI parsing complete.');
         return {
             rawText,

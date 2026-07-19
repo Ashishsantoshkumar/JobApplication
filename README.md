@@ -107,7 +107,7 @@ Configure backend variables in `backend/.env`. Never commit real secrets.
 | `PORT` | No | Local API port; defaults to `5000`. |
 | `DATABASE_URL` | Recommended | PostgreSQL connection string. Leave empty to use the local fallback. |
 | `OPENAI_API_KEY` | Recommended | Enables OpenAI resume parsing and embeddings. |
-| `VITE_API_URL` | No | Frontend API base URL. Omit it locally to use `http://localhost:5000`; set it to an empty string for same-domain production routing. |
+| `VITE_API_URL` | No | Custom frontend API base URL. Omit it to use `http://localhost:5000` during local development and same-domain `/api` routing in production. |
 
 The included Docker Compose database uses:
 
@@ -146,7 +146,7 @@ Before deployment:
 3. Add production environment variables in Vercel:
    - `DATABASE_URL` for an externally hosted PostgreSQL database with pgvector enabled.
    - `OPENAI_API_KEY`.
-   - `VITE_API_URL` set to an empty value so browser requests use `/api/...` on the same domain.
+   - `VITE_API_URL` only if the backend is hosted on a different public URL. Otherwise leave it unset; browser requests automatically use `/api/...` on the same domain.
 4. Deploy and verify `https://<your-domain>/api/status` returns `200`.
 
 The backend exports its Express application for Vercel’s function runtime and starts a port listener only outside Vercel. This prevents the common “backend offline” symptom caused by treating a serverless function like a permanently running server.

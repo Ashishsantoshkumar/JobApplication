@@ -20,6 +20,17 @@ const databaseReady = db.initDb();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Health checks must not wait for an optional database connection. This keeps
+// the deployed service reachable during a slow database cold start or fallback.
+app.get('/api/status', (_req, res) => {
+  res.json({
+    status: 'online',
+    databaseMode: db.isUsingFallback() ? 'Local JSON Mock' : 'PostgreSQL + pgvector',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use(async (_req, _res, next) => {
   try {
     await databaseReady;
@@ -41,15 +52,6 @@ const upload = multer({
       cb(new Error('Only PDF resumes are supported in this version.'));
     }
   }
-});
-
-// Server status endpoint
-app.get('/api/status', (req, res) => {
-  res.json({
-    status: 'online',
-    databaseMode: db.isUsingFallback() ? 'Local JSON Mock' : 'PostgreSQL + pgvector',
-    timestamp: new Date().toISOString()
-  });
 });
 
 // Get all jobs list

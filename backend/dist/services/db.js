@@ -82,6 +82,11 @@ class DatabaseService {
     }
     // Save fallback data to JSON
     saveFallback() {
+        // Serverless filesystems are ephemeral/read-only. Keep the in-memory result
+        // available for the current request without failing writes on Vercel.
+        if (process.env.VERCEL) {
+            return;
+        }
         try {
             const dir = path.dirname(MOCK_DB_PATH);
             if (!fs.existsSync(dir)) {
@@ -111,6 +116,13 @@ class DatabaseService {
             }
             catch (err) {
                 console.warn('⚠️ Warning: Could not create pgvector extension. Make sure it is installed on the PG server.');
+            }
+            // Required by the UUID defaults used in the schema on many PostgreSQL hosts.
+            try {
+                await client.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+            }
+            catch (err) {
+                console.warn('Warning: Could not create pgcrypto extension. UUID defaults must already be available.');
             }
             // Create Jobs table
             await client.query(`
@@ -272,6 +284,29 @@ class DatabaseService {
             return newResume;
         }
     }
+    async getResume(id) {
+        if (this.useFallback) {
+            return this.fallbackData.resumes.find(resume => resume.id === id) || null;
+        }
+        try {
+            const res = await this.pool.query('SELECT id, extracted_text, parsed_json, resume_embeddings::text AS resume_embeddings FROM resumes WHERE id = $1', [id]);
+            if (res.rows.length === 0)
+                return null;
+            const row = res.rows[0];
+            return {
+                id: row.id,
+                extracted_text: row.extracted_text,
+                parsed_json: typeof row.parsed_json === 'string' ? JSON.parse(row.parsed_json) : row.parsed_json,
+                resume_embeddings: row.resume_embeddings
+                    ? row.resume_embeddings.replace('[', '').replace(']', '').split(',').map(Number)
+                    : undefined
+            };
+        }
+        catch (error) {
+            console.error('Error fetching resume from PG:', error);
+            return null;
+        }
+    }
     async saveApplication(application) {
         const fallbackApplication = {
             ...application,
@@ -283,23 +318,31 @@ class DatabaseService {
             this.saveFallback();
             return fallbackApplication;
         }
-        const result = await this.pool.query(`INSERT INTO applications (job_id, full_name, email, phone, current_location, years_experience, current_company, notice_period, expected_salary, linkedin_url, portfolio_url, cover_letter)
+        try {
+            const result = await this.pool.query(`INSERT INTO applications (job_id, full_name, email, phone, current_location, years_experience, current_company, notice_period, expected_salary, linkedin_url, portfolio_url, cover_letter)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`, [
-            application.job_id,
-            application.full_name,
-            application.email,
-            application.phone || null,
-            application.current_location,
-            application.years_experience,
-            application.current_company || null,
-            application.notice_period,
-            application.expected_salary || null,
-            application.linkedin_url || null,
-            application.portfolio_url || null,
-            application.cover_letter || null
-        ]);
-        return result.rows[0];
+                application.job_id,
+                application.full_name,
+                application.email,
+                application.phone || null,
+                application.current_location,
+                application.years_experience,
+                application.current_company || null,
+                application.notice_period,
+                application.expected_salary || null,
+                application.linkedin_url || null,
+                application.portfolio_url || null,
+                application.cover_letter || null
+            ]);
+            return result.rows[0];
+        }
+        catch (error) {
+            console.error('Error saving application to PG; using in-memory fallback:', error);
+            this.fallbackData.applications.push(fallbackApplication);
+            this.saveFallback();
+            return fallbackApplication;
+        }
     }
     // DB Direct query access if needed
     async query(text, params) {

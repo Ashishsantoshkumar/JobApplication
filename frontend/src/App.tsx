@@ -26,7 +26,7 @@ function App() {
         } else {
           setServerStatus(null);
         }
-      } catch (err) {
+      } catch {
         setServerStatus(null);
       } finally {
         setConnecting(false);

@@ -68,46 +68,8 @@ function generateExplanation(resume, job) {
     };
 }
 async function rankJobsForResume(resumeId) {
-    // Fetch resume
-    let resume = null;
-    // Let's implement this properly. First, we need to fetch the resume and jobs.
-    // We can write a specific query in db.ts, or just retrieve them. Let's make db methods to fetch resumes.
-    // Actually, we can fetch all jobs and the single resume to match.
-    // Let's modify DB to get a specific resume. Since db has getJobs(), let's write a getResume(id) in db or query it.
-    // Let's check how to fetch the resume. We will add resume fetching to db.ts, or just do it in match.ts.
-    // Since db.ts has internal state fallbackData in mock mode, let's write it in db.ts or let's read the resume directly.
-    // Let's write a helper in db.ts? Or let's just make db class export a getter/methods.
-    // Let's inspect db.ts. It exports a singleton `db` of DatabaseService. The DatabaseService has `fallbackData`. 
-    // Let's check: can we add a method `getResume(id)` to DatabaseService?
-    // Yes! But instead of replacing, we can just do it here if we cast `db as any` or we can edit db.ts later. 
-    // Actually, let's write getResume in db.ts. Since we just created db.ts, we can update it or we can just fetch all resumes inside match.ts by adding the method. Let's add the method to db.ts to keep it super clean.
-    // Wait, let's look at db.ts. Yes, we can just add a getResume(id) and getResumes() method.
-    // Let's write the matching logic in match.ts assuming the db has the getResume method. Let's write match.ts first.
     const allJobs = await db_1.db.getJobs();
-    // To avoid edit loop on db.ts, let's cast db as any or call a standard query if PG is active.
-    // Let's define the getResume helper right here or call db.query if Postgres, and access fallbackData if fallback.
-    let targetResume = null;
-    if (db_1.db.isUsingFallback()) {
-        const fallbackDb = db_1.db.fallbackData;
-        targetResume = fallbackDb.resumes.find((r) => r.id === resumeId) || null;
-    }
-    else {
-        try {
-            const res = await db_1.db.query('SELECT id, extracted_text, parsed_json, resume_embeddings::text as resume_embeddings FROM resumes WHERE id = $1', [resumeId]);
-            if (res.rows.length > 0) {
-                const row = res.rows[0];
-                targetResume = {
-                    id: row.id,
-                    extracted_text: row.extracted_text,
-                    parsed_json: typeof row.parsed_json === 'string' ? JSON.parse(row.parsed_json) : row.parsed_json,
-                    resume_embeddings: row.resume_embeddings ? row.resume_embeddings.replace('[', '').replace(']', '').split(',').map(Number) : undefined
-                };
-            }
-        }
-        catch (err) {
-            console.error('Error fetching resume from PG:', err);
-        }
-    }
+    const targetResume = await db_1.db.getResume(resumeId);
     if (!targetResume) {
         throw new Error(`Resume with ID ${resumeId} not found.`);
     }
